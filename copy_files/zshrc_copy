@@ -1,0 +1,48 @@
+export PATH="$HOME/.pyenv/bin:$PATH"
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)"
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/Users/matthewhunt/google-cloud-sdk/path.zsh.inc' ]; then . '/Users/matthewhunt/google-cloud-sdk/path.zsh.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/Users/matthewhunt/google-cloud-sdk/completion.zsh.inc' ]; then . '/Users/matthewhunt/google-cloud-sdk/completion.zsh.inc'; fi
+
+bindkey -v
+bindkey '^R' history-incremental-search-backward
+
+alias laptop='bash <(curl -s https://raw.githubusercontent.com/monfresh/laptop/master/laptop)'
+
+export PATH="$HOME/.bin:$PATH"
+
+eval "$(hub alias -s)"
+
+source /usr/local/share/chruby/chruby.sh
+
+source /usr/local/share/chruby/auto.sh
+
+chruby ruby-2.7.0
+
+  prompt_ruby_info() {
+    echo ruby 2.7.0p0
+  }
+
+GREEN=$(tput setaf 65)
+
+ORANGE=$(tput setaf 166)
+
+NORMAL=$(tput sgr0)
+
+# precmd () { PS1="${ORANGE}[%~] ${GREEN}$(prompt_ruby_info) ${NORMAL}$ " }
+# 
+precmd () { PS1=" ${ORANGE}[%~] ${NORMAL}$ " }
+# export CLICOLOR=1;
+# 
+# export LSCOLORS=exfxcxdxbxegedabagacad;
+#
+export HISTSIZE=9000
+export HISTCONTROL=erasedups
+
+alias hw_go='cd ~/Coding/RL_Stuff/berkley_rl_course/homework/hw3'
+alias cs231gcloud='gcloud beta compute ssh --zone "us-west1-b" "cs231gpu1-vm" --project "cobalt-poet-260521"'
+alias get_file_utils="gcloud compute scp cs231gpu1-vm:~/Ram_project/Ram_Project/code_and_notebooks/file_utils.py ~/Coding/Seattle_Research/Ram_Project/code_and_notebooks --zone='us-west1-b'"

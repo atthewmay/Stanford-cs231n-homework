@@ -568,7 +568,25 @@ def conv_forward_naive(x, w, b, conv_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    WW = w.shape[-1]
+    HH = w.shape[-2]
+
+    stride = conv_param['stride']
+    pad = conv_param['pad']
+    out = np.zeros((x.shape[0],w.shape[0],1 + (x.shape[-2] + 2 * pad - HH ) // stride,1 + (x.shape[-1] + 2 * pad - WW) // stride))
+
+    row_indexes = range(0,1+x.shape[2]+2*pad-HH,stride)
+    col_indexes = range(0,1+x.shape[3]+2*pad-WW,stride)
+
+    for n in range(x.shape[0]):
+        image = x[n,:,:,:]
+        image_pad = np.pad(image, ((0,0),(pad,pad),(pad,pad)), 'constant')
+        for f in range(w.shape[0]):
+            for row_i in row_indexes:
+                for col_i in col_indexes:
+                    # WOW! I forgot to sum over teh c_i loop! Dang it. Alas! and then i was triple adding
+                    # b[f]. So it got fixed by just eliminating the stupid outer loop. 
+                    out[n,f,row_i//stride,col_i//stride] = np.sum(image_pad[:,row_i:row_i+HH,col_i:col_i+WW]*w[f,:,:,:])+b[f]
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -597,7 +615,35 @@ def conv_backward_naive(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, w, b, conv_param = cache
+    stride = conv_param['stride']
+    pad = conv_param['pad']
+
+    dw = np.zeros_like(w)
+    dx = np.zeros_like(np.pad(x,((0,0),(0,0),(pad,pad),(pad,pad)), 'constant'))
+    db = np.zeros_like(b)
+
+    WW = w.shape[-1]
+    HH = w.shape[-2]
+
+
+    row_indexes = range(0,1+x.shape[2]+2*pad-HH,stride)
+    col_indexes = range(0,1+x.shape[3]+2*pad-WW,stride)
+
+    for n in range(x.shape[0]):
+        image = x[n,:,:,:]
+        image_pad = np.pad(image, ((0,0),(pad,pad),(pad,pad)), 'constant')
+        for f in range(w.shape[0]):
+            db[f] = np.sum(dout[:,f,:,:])
+            for row_i in row_indexes:
+                for col_i in col_indexes:
+                    dw[f,:,:,:] += dout[n,f,row_i//stride,col_i//stride]*image_pad[:,row_i:row_i+HH,col_i:col_i+WW]
+#                    import pdb; pdb.set_trace()
+                    dx[n,:,row_i:row_i+HH,col_i:col_i+WW] += dout[n,f,row_i//stride,col_i//stride]*w[f,:,:,:]
+
+    # I think this is clever. We had to let the padding exist to not have shape error, and truely if the 0's
+    # changed, they would have effect on Loss! so it's legit, but not relevant to our dLdx.
+    dx = dx[:,:,pad:-pad,pad:-pad]
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -630,8 +676,24 @@ def max_pool_forward_naive(x, pool_param):
     # TODO: Implement the max-pooling forward pass                            #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    stride = pool_param['stride']
+    pool_height = pool_param['pool_height']
+    pool_width = pool_param['pool_width']
+    H = x.shape[-2]
+    W = x.shape[-1]
 
-    pass
+    out = np.zeros((x.shape[0],x.shape[1],1 + (H - pool_height) // stride,1 + (W - pool_width) // stride))
+
+    row_indexes = range(0,1+x.shape[2]-pool_height,stride)
+    col_indexes = range(0,1+x.shape[3]-pool_width,stride)
+
+    for n in range(x.shape[0]):
+        image = x[n,:,:,:]
+        for row_i in row_indexes:
+            for col_i in col_indexes:
+                maxes = np.amax(image[:,row_i:row_i+pool_height,col_i:col_i+pool_width], axis = (-2,-1))
+                out[n,:,row_i//stride,col_i//stride] = maxes
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -658,7 +720,31 @@ def max_pool_backward_naive(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, pool_param = cache
+    stride = pool_param['stride']
+    pool_height = pool_param['pool_height']
+    pool_width = pool_param['pool_width']
+    H = x.shape[-2]
+    W = x.shape[-1]
+
+    out = np.zeros((x.shape[0],x.shape[1],1 + (H - pool_height) // stride,1 + (W - pool_width) // stride))
+
+    row_indexes = range(0,1+x.shape[2]-pool_height,stride)
+    col_indexes = range(0,1+x.shape[3]-pool_width,stride)
+
+    dx = np.zeros_like(x)
+
+    # dx = np.zeros_like(np.pad(x,((0,0),(0,0),(pad,pad),(pad,pad)), 'constant'))
+    for n in range(x.shape[0]):
+        image = x[n,:,:,:]
+        for c_i in range(x.shape[1]):
+            for row_i in row_indexes:
+                for col_i in col_indexes:
+                    mask = np.zeros_like(image[c_i,row_i:row_i+pool_height,col_i:col_i+pool_width])
+                    mask = np.ravel(mask)
+                    mask[np.argmax( image[c_i,row_i:row_i+pool_height,col_i:col_i+pool_width])] = 1
+                    dx[n,c_i,row_i:row_i+pool_height,col_i:col_i+pool_width] += dout[n,c_i,row_i//stride,col_i//stride]*mask.reshape(pool_height,pool_width)
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -666,6 +752,17 @@ def max_pool_backward_naive(dout, cache):
     ###########################################################################
     return dx
 
+
+def swapshape(a):
+    N1,F1,H1,W1 = a.shape
+    a_swap = np.rollaxis(a,1,start=len(a.shape))
+    b = a_swap.reshape(N1*H1*W1,F1)
+    return b, a_swap.shape
+
+def unswap(b,a_swap_shape):
+    c = b.reshape(a_swap_shape)
+    c_swap = np.rollaxis(c,-1,start=1)
+    return c_swap
 
 def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     """
@@ -700,7 +797,11 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x_swap,shape = swapshape(x)
+    x_swap_bn, cache = batchnorm_forward(x_swap,gamma,beta,bn_param)
+    out = unswap(x_swap_bn,shape)
+
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -734,8 +835,9 @@ def spatial_batchnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
-
+    dout_swap,shape = swapshape(dout)
+    dx_swap,dgamma,dbeta = batchnorm_backward(dout_swap,cache)
+    dx = unswap(dx_swap,shape)
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #

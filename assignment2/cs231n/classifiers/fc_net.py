@@ -266,6 +266,9 @@ class FullyConnectedNet(object):
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         h = X
         caches = []
+        if self.use_dropout:
+            dropout_caches = []
+
         for i in range(1,self.num_layers):
             if self.normalization == None:
                 h,cache_h = affine_relu_forward(h,self.params["W"+str(i)],self.params["b"+str(i)])
@@ -273,6 +276,10 @@ class FullyConnectedNet(object):
                 h,cache_h = self.affine_bn_relu_forward(h,i)
             elif self.normalization =="layernorm":
                 h,cache_h = self.affine_layer_norm_relu_forward(h,i)
+
+            if self.use_dropout:
+                h,dropout_cache = dropout_forward(h,self.dropout_param)
+                dropout_caches.append(dropout_cache)
 
 
             caches.append(cache_h)
@@ -306,8 +313,10 @@ class FullyConnectedNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         loss,dL_dscore = softmax_loss(scores,y)
-        #import pdb; pdb.set_trace() 
         dx, grads["W"+str(self.num_layers)], grads["b"+str(self.num_layers)] = affine_backward(dL_dscore,caches.pop())
+        if self.use_dropout:
+            dx *= dropout_caches.pop()[-1]
+
         for i in range(self.num_layers-1,0,-1):
             if self.normalization == None:
                 dx, grads["W"+str(i)], grads["b"+str(i)] = affine_relu_backward(dx,caches.pop())
@@ -317,6 +326,13 @@ class FullyConnectedNet(object):
 
             elif self.normalization == "layernorm":
                 dx, grads["W"+str(i)], grads["b"+str(i)], grads["gamma"+str(i)],grads["beta"+str(i)] =                self.affine_layer_norm_relu_backward(dx,caches.pop())
+
+            if self.use_dropout and i != 1:
+                # Gotta alter the gradients of all of our parameters I think. 
+                # note that the following implementation will not work with batch norm, bc grad gamma and
+                # beta will be wrong unless I change things around. 
+                dx *= dropout_caches.pop()[-1]
+
 
 
 
